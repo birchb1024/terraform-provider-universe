@@ -415,12 +415,15 @@ This can be achieved by copying or linking to the provider binary file with a
 name inclusive of the provider name:
 
 ```shell script
- # Move to the plugins directory wherein lies the provider
-cd ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64
-# Copy the original file
-cp terraform-provider-universe  terraform-provider-spot_io_elastic_instance
-# or maybe link it
-ln -s terraform-provider-universe  terraform-provider-spot_io_elastic_instance
+# Move to the author directory
+cd ~/.terraform.d/plugins/github.com/birchb1024/
+# Create the sub-folders with same name upto the provider binary and traverse to it
+mkdir -p spot_io_elastic_instance/0.0.5/linux_amd64
+cd spot_io_elastic_instance/0.0.5/linux_amd64
+# Create a link to the binary
+ln -s ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64/terraform-provider-universe terraform-provider-spot_io_elastic_instance
+# OR, copy it
+cp ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64/terraform-provider-universe terraform-provider-spot_io_elastic_instance
 ```
 
 Alternatively, if you have the source repository checked out, the installer script will add a second provider:
