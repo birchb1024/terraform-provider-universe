@@ -281,7 +281,7 @@ The `exists` event expects either `true` or `false` on the stdout of the executi
 The other events require JSON on the standard output matching the input JSON plus any dynamic fields.
 The `create` execution must have the id of the resource in the field named by the `id_key` field.
 
-#### Example
+#### Example 1
 
 Your script could look something like the `json_file` example below. This script maintains files in the file system 
 containing JSON data in the `config` field. The created datetime is returned as a dynamic field. 
@@ -354,6 +354,111 @@ of your development language.
 ```bash
 echo "{\"key\":\"value\"}" | id=testid001 python3 my_resource.py create
 ```
+
+#### Example 2
+
+This example captures the use of `jsonfile` provider which is a renamed version of the `universe` provider.
+First, follow the steps described in `Renaming the Provider` and create a new provider called `jsonfile` symlinking to `universe` provider.
+
+Then, create a new folder and add the following content in `jsonfile.py`:
+
+```python
+#!/usr/bin/env python3
+import os
+import sys
+import json
+import tempfile
+from datetime import datetime
+
+if __name__ == '__main__':
+    result = None
+    event = sys.argv[1]  # create, read, update or delete, maybe exists too
+
+    id = os.environ.get("filename")  # Get the id if present else None
+    script = os.environ.get("script")
+
+    if event == "exists":
+        # ignore stdin
+        # Is file there?
+        if id is None:
+            result = False
+        else:
+            result = os.path.isfile(id)
+        print('true' if result else 'false')
+        exit(0)
+
+    elif event == "delete":
+        # Delete the file
+        os.remove(id)
+        exit(0)
+
+    # Read the JSON from standard input
+    input = sys.stdin.read()
+    input_dict = json.loads(input)
+
+    if event == "create":
+        # Create a unique file /tmp/json-file.pyXXXX and write the data to it
+        ff = tempfile.NamedTemporaryFile(mode='w+', prefix=script, delete=False)
+        input_dict["@created"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        ff.write(input_dict["content"])
+        ff.close()
+        input_dict.update({"filename": ff.name})  # Give the ID back to Terraform - it's the filename
+        result = input_dict
+
+    elif event == "read":
+        # Open the file given by the id and return the data
+        fr = open(id, mode='r+')
+        data = fr.read()
+        fr.close()
+        input_dict['content'] = data
+        result = input_dict
+
+    elif event == "update":
+        # write the data out to the file given by the Id
+        fu = open(id, mode='w+')
+        fu.write(input_dict['content'])
+        fu.close()
+        result = input_dict
+
+    print(json.dumps(result))
+```
+
+Then, define a simple terraform file e.g. `jsonfile.tf` which creates a JSON file whose content is maintained by the terraform file below:
+```hcl
+terraform {
+  required_version = ">= 0.13.0"
+  required_providers {
+    jsonfile = {
+      source = "github.com/birchb1024/jsonfile"
+      version = ">=0.0.5"
+    }
+  }
+}
+
+resource "jsonfile" "h" {
+  executor = "python3"
+  script = "jsonfile.py"
+  id_key = "filename"
+  config = jsonencode({
+    "name": "Don't Step On My Blue Suede Shoes",
+    "created-by" : "Elvis Presley",
+    "where" : "Gracelands",
+    "hit" : "Gold",
+    "@created": 23
+    "content": "This is a test content2."
+  })
+}
+
+output "hp_name" {
+  value = jsondecode(jsonfile.h.config)["name"]
+}
+```
+
+Deploy the changes via terraform:
+```
+terraform apply
+```
+
 ## Renaming the Resource Type
 
 In your Terraform source code you may not want to see the resource type `universe`. You might a 
@@ -409,18 +514,21 @@ export TERRAFORM_LINUX_RESOURCETYPES='json_file network_interface directory'
 You can rename the provider itself. This could be to 'fake out' a normal provider to investigate its behaviour or 
 emulate a defunct provider. 
 
-Or maybe you just want a name you prefer. 
+Or maybe you just want a name you prefer e.g. `spot_io_elastic_instance`
 
 This can be achieved by copying or linking to the provider binary file with a 
 name inclusive of the provider name:
 
 ```shell script
- # Move to the plugins directory wherein lies the provider
-cd ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64
-# Copy the original file
-cp terraform-provider-universe  terraform-provider-spot_io_elastic_instance
-# or maybe link it
-ln -s terraform-provider-universe  terraform-provider-spot_io_elastic_instance
+# Move to the author directory
+cd ~/.terraform.d/plugins/github.com/birchb1024/
+# Create the sub-folders with same name upto the provider binary and traverse to it
+mkdir -p spot_io_elastic_instance/0.0.5/linux_amd64
+cd spot_io_elastic_instance/0.0.5/linux_amd64
+# Create a link to the binary
+ln -s ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64/terraform-provider-universe terraform-provider-spot_io_elastic_instance
+# OR, copy it
+cp ~/.terraform.d/plugins/github.com/birchb1024/universe/0.0.5/linux_amd64/terraform-provider-universe terraform-provider-spot_io_elastic_instance
 ```
 
 Alternatively, if you have the source repository checked out, the installer script will add a second provider:
