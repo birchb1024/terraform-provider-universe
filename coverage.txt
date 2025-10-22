@@ -1,0 +1,1 @@
+ok  	github.com/birchb1024/terraform-provider-universe/universe	0.338s	coverage: 82.9% of statements

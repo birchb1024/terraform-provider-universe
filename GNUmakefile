@@ -12,7 +12,7 @@ build: fmt
 test: fmtcheck
 	go test -i $(TEST) || exit 1
 	echo $(TEST) | \
-		xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
+		xargs -t -n4 go test -coverprofile=coverage.out $(TESTARGS) -timeout=30s -parallel=4 | awk '/^ok/' > coverage.txt
 
 testacc: fmtcheck
 	TF_ACC=1 go test $(TEST) -v $(TESTARGS) -timeout 120m
